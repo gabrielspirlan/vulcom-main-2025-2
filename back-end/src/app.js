@@ -4,6 +4,9 @@ dotenv.config() // Carrega as variáveis de ambiente do arquivo .env
 import express, { json, urlencoded } from 'express'
 import cookieParser from 'cookie-parser'
 import logger from 'morgan'
+// Middleware de verificação do token de autorização
+import auth from './middleware/auth.js'
+
 
 const app = express()
 
@@ -14,6 +17,7 @@ app.use(cors({
     //credentials: true
 }))
 
+app.use(auth)
 app.use(logger('dev'))
 app.use(json())
 app.use(urlencoded({ extended: false }))
