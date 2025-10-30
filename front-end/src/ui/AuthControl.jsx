@@ -20,7 +20,7 @@ export default function AuthControl() {
   const navigate = useNavigate()
 
   async function handleLogoutButtonClick() {
-    if (await askForConfirmation('Deseja realmente sair?')) {
+    if(await askForConfirmation('Deseja realmente sair?')) {
       showWaiting(true)
       try {
         // Faz uma requisição ao back-end solicitando a
@@ -34,7 +34,7 @@ export default function AuthControl() {
         // Redireciona para a página de login
         navigate('/login')
       }
-      catch (error) {
+      catch(error) {
 
       }
       finally {
@@ -43,8 +43,7 @@ export default function AuthControl() {
     }
   }
 
-
-  if (authUser) {
+  if(authUser) {
     return (
       <>
         <Waiting />
@@ -55,7 +54,7 @@ export default function AuthControl() {
         <Typography variant="caption">
           {authUser.username}
         </Typography>
-        <Button
+        <Button 
           color="secondary"
           size="small"
           onClick={handleLogoutButtonClick}

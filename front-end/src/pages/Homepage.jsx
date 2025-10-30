@@ -25,16 +25,6 @@ export default function Homepage() {
         Sistema para análise e estudo de vulnerabilidades comuns  
       </Typography>
 
-      <Typography variant="h3">
-        Exposição de valores do <em>local storage</em>
-        <Typography variant="caption" style={{ fontFamily: 'monospace '}}>
-          {
-            ls.map(kv => (
-              <p>{Object.keys(kv)[0]} =&gt; {kv[Object.keys(kv)[0]]}</p>
-            ))
-          }
-        </Typography>
-      </Typography>
       <Typography variant="h6">
         Exposição de valores do <em>local storage</em>
         <Typography variant="caption" style={{ fontFamily: 'monospace '}}>
@@ -52,7 +42,7 @@ export default function Homepage() {
           <p>{ document.cookie }</p>  
         </Typography>
       </Typography>
-
+      
     </>
   )
 }
