@@ -16,11 +16,13 @@ import myfetch from '../../lib/myfetch'
 import useConfirmDialog from '../../ui/useConfirmDialog'
 import useNotification from '../../ui/useNotification'
 import useWaiting from '../../ui/useWaiting'
+import Car from '../../models/Car.js'
+import { ZodError } from 'zod'
 
 export default function CarForm() {
   /*
     Por padrão, todos os campos do nosso formulário terão como
-    valor inicial uma string vazia. A exceção é o campo birth_date
+    valor inicial uma string vazia. A exceção é o campo selling_date
     que, devido ao funcionamento do componente DatePicker, deve
     iniciar valendo null.
   */
@@ -32,6 +34,7 @@ export default function CarForm() {
     imported: false,
     plates: '',
     selling_date: null,
+    selling_price: '',
     customer_id: ''
   }
 
@@ -49,6 +52,12 @@ export default function CarForm() {
   const { askForConfirmation, ConfirmDialog } = useConfirmDialog()
   const { notify, Notification } = useNotification()
   const { showWaiting, Waiting } = useWaiting()
+
+  const [imported, setImported] = React.useState(false)
+  // car.imported = imported
+  const handleImportedChange = (event) => {
+    setImported(event.target.checked)
+  }
 
   const colors = [
     { value: 'AMARELO', label: 'AMARELO' },
@@ -79,15 +88,17 @@ export default function CarForm() {
     years.push(year)
   }
 
-  const [imported, setImported] = React.useState(false)
-  // car.imported = imported
-  const handleImportedChange = (event) => {
-    setImported(event.target.checked)
-  }
-
   function handleFieldChange(event) {
+    // Tira uma cópia do objeto que representa o carro
     const carCopy = { ...car }
-    carCopy[event.target.name] = event.target.value
+    // Verifica se é um checkbox para pegar o valor correto
+    if(event.target.type === 'checkbox') {
+      carCopy[event.target.name] = event.target.checked
+    } else {
+      carCopy[event.target.name] = event.target.value
+    }
+    // Atualiza a variável de estado, substituindo o objeto car
+    // pela cópia atualizada
     setState({ ...state, car: carCopy, formModified: true })
   }
 
@@ -96,24 +107,53 @@ export default function CarForm() {
     showWaiting(true); // Exibe a tela de espera
     try {
 
-      if(car.selling_price === '') car.selling_price = null
+      // Cria uma cópia do objeto car para validação
+      const carToValidate = { ...car }
+
+      // Atribui o valor do checkbox imported
+      carToValidate.imported = imported
+
+      // Converte year_manufacture para número
+      if(carToValidate.year_manufacture) {
+        carToValidate.year_manufacture = Number(carToValidate.year_manufacture)
+      }
+
+      // Trata o campo selling_price: se vazio, converte para null; senão, converte para número
+      if(carToValidate.selling_price === '') {
+        carToValidate.selling_price = null
+      } else if(carToValidate.selling_price) {
+        carToValidate.selling_price = Number(carToValidate.selling_price)
+      }
+
+      // Invoca a validação do Zod
+      Car.parse(carToValidate)
 
       // Se houver parâmetro na rota, significa que estamos modificando
-      // um cliente já existente. A requisição será enviada ao back-end
+      // um carro já existente. A requisição será enviada ao back-end
       // usando o método PUT
-      if (params.id) await myfetch.put(`/cars/${params.id}`, car)
-      // Caso contrário, estamos criando um novo cliente, e enviaremos
+      if (params.id) await myfetch.put(`/cars/${params.id}`, carToValidate)
+      // Caso contrário, estamos criando um novo carro, e enviaremos
       // a requisição com o método POST
-      else await myfetch.post('/cars', car)
+      else await myfetch.post('/cars', carToValidate)
 
-      // Deu certo, vamos exbir a mensagem de feedback que, quando for
-      // fechada, vai nos mandar de volta para a listagem de clientes
+      // Deu certo, vamos exibir a mensagem de feedback que, quando for
+      // fechada, vai nos mandar de volta para a listagem de carros
       notify('Item salvo com sucesso.', 'success', 4000, () => {
         navigate('..', { relative: 'path', replace: true })
       })
     } catch (error) {
       console.error(error)
-      notify(error.message, 'error')
+
+      // Em caso de erro do Zod, preenchemos a variável de estado
+      // inputErrors com os erros para depois exibir abaixo de cada
+      // campo de entrada
+      if (error instanceof ZodError) {
+        const errorMessages = {}
+        for (let i of error.issues) errorMessages[i.path[0]] = i.message
+        setState({ ...state, inputErrors: errorMessages })
+        notify('Há campos com valores inválidos. Verifique.', 'error')
+      }
+      else notify(error.message, 'error')
     } finally {
       // Desliga a tela de espera, seja em caso de sucesso, seja em caso de erro
       showWaiting(false)
@@ -124,7 +164,7 @@ export default function CarForm() {
     useEffect() que é executado apenas uma vez, no carregamento do componente.
     Verifica se a rota tem parâmetro. Caso tenha, significa que estamos vindo
     do componente de listagem por meio do botão de editar, e precisamos chamar
-    a função loadData() para buscar no back-end os dados do cliente a ser editado
+    a função loadData() para buscar no back-end os dados do carro a ser editado
   */
   React.useEffect(() => {
     loadData()
@@ -148,10 +188,18 @@ export default function CarForm() {
 
         // Converte o formato de data armazenado no banco de dados
         // para o formato reconhecido pelo componente DatePicker
-        
         if(car.selling_date) {
           car.selling_date = parseISO(car.selling_date)
         }
+
+        // Se o preço de venda for null, converte para string vazia
+        // para exibição no campo de entrada
+        if(car.selling_price === null) {
+          car.selling_price = ''
+        }
+
+        // Atualiza o estado do checkbox imported
+        setImported(car.imported)
       }
 
       setState({ ...state, car, customers })
@@ -178,6 +226,7 @@ export default function CarForm() {
   }
 
   function handleKeyDown(event) {
+    // Permite limpar o campo de cliente pressionando a tecla Delete
     if(event.key === 'Delete') {
       const stateCopy = {...state}
       stateCopy.car.customer_id = null
@@ -222,15 +271,15 @@ export default function CarForm() {
 
           <TextField
             name='color'
-            label='Color'
+            label='Cor'
             variant='filled'
             required
             fullWidth
             value={car.color}
             onChange={handleFieldChange}
             select
-            helperText={inputErrors?.state}
-            error={inputErrors?.state}
+            helperText={inputErrors?.color}
+            error={inputErrors?.color}
           >
             {colors.map((s) => (
               <MenuItem key={s.value} value={s.value}>
@@ -258,13 +307,11 @@ export default function CarForm() {
             ))}
           </TextField>
 
-          <div class="MuiFormControl-root">
+          <div className="MuiFormControl-root">
             <FormControlLabel
               control={
                 <Checkbox
                   name='imported'
-                  variant='filled'
-                  value={(car.imported = imported)}
                   checked={imported}
                   onChange={handleImportedChange}
                   color='primary'
@@ -288,8 +335,8 @@ export default function CarForm() {
                 variant='filled'
                 required
                 fullWidth
-                helperText={inputErrors?.phone}
-                error={inputErrors?.phone}
+                helperText={inputErrors?.plates}
+                error={inputErrors?.plates}
               />
             )}
           </InputMask>
